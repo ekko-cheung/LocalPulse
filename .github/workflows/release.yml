@@ -20,15 +20,11 @@ jobs:
           - name: Windows
             os: windows-latest
             artifact: windows-bundles
-            path: |
-              src-tauri/target/release/bundle/msi/*.msi
-              src-tauri/target/release/bundle/nsis/*.exe
+            bundles: msi nsis
           - name: macOS
             os: macos-latest
             artifact: macos-bundles
-            path: |
-              src-tauri/target/release/bundle/dmg/*.dmg
-              src-tauri/target/release/bundle/macos/*.app.tar.gz
+            bundles: dmg app
 
     steps:
       - name: Checkout
@@ -58,11 +54,11 @@ jobs:
         run: pnpm build
 
       - name: Build desktop bundle
-        run: pnpm exec tauri build --config src-tauri/tauri.conf.json
+        run: pnpm exec tauri build --config src-tauri/tauri.conf.json --bundles ${{ matrix.bundles }}
 
       - name: Upload ${{ matrix.name }} bundles
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.path }}
+          path: src-tauri/target/release/bundle/**/*
           if-no-files-found: error
