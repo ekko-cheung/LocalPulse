@@ -26,7 +26,7 @@ fn start_agent(app: tauri::AppHandle, state: tauri::State<'_, AgentProcess>, tok
     let (sender, receiver) = oneshot::channel();
     if let Ok(mut error) = state.last_error.lock() { *error = None; }
     let last_error = Arc::clone(&state.last_error);
-    let task = state.runtime.spawn(async move { let result = agent::run(Some(token), Some(receiver)).await; if let Err(error) = &result { if let Ok(mut last) = last_error.lock() { *last = Some(error.to_string()); } } result });
+    let task = state.runtime.spawn(async move { let result = agent::run(Some(token), Some(receiver), app).await; if let Err(error) = &result { if let Ok(mut last) = last_error.lock() { *last = Some(error.to_string()); } } result });
     *process = Some((task, sender));
     Ok("started".into())
 }
@@ -50,7 +50,11 @@ fn agent_status(state: tauri::State<'_, AgentProcess>) -> Result<String, String>
 }
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "localpulse=info".into()))
+        .init();
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(AgentProcess { runtime: Runtime::new().expect("failed to create Tokio runtime"), task: Mutex::new(None), last_error: Arc::new(Mutex::new(None)) })
         .invoke_handler(tauri::generate_handler![start_agent, stop_agent, agent_status])
         .setup(|app| {

@@ -8,6 +8,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 anyhow = "1"
 axum = "0.7"

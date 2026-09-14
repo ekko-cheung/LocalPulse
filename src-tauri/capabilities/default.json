@@ -3,6 +3,5 @@
   "identifier": "default",
   "description": "Default LocalPulse desktop permissions",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "notification:default"]
 }
-

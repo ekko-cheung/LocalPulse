@@ -7,13 +7,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, SqlitePool};
 use std::{collections::HashMap, env, net::SocketAddr, str::FromStr, sync::Arc, time::Duration as StdDuration};
+use tauri::AppHandle;
+use tauri_plugin_notification::NotificationExt;
 use tokio::{process::Command, sync::Semaphore, time::timeout};
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 use uuid::Uuid;
 
 #[derive(Clone)]
-struct AppState { db: SqlitePool, token: Arc<String>, client: Client, slots: Arc<Semaphore> }
+struct AppState { db: SqlitePool, token: Arc<String>, client: Client, slots: Arc<Semaphore>, app: AppHandle }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -62,7 +64,7 @@ async fn executions(State(s): State<AppState>, headers: HeaderMap, Path(id): Pat
 async fn get_execution(State(s): State<AppState>, headers: HeaderMap, Path(id): Path<String>) -> Result<Json<Api<Execution>>, (StatusCode, Json<Api<Value>>)> { auth(&headers, &s).await?; sqlx::query_as::<_, Execution>("SELECT id,job_id,status,started_at,finished_at,exit_code,stdout,stderr,result,error,attempt FROM executions WHERE id=?").bind(id).fetch_optional(&s.db).await.map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?.map(ok).ok_or_else(|| fail(StatusCode::NOT_FOUND, "execution not found")) }
 
 #[derive(Debug, Deserialize)] struct Notify { title: String, body: String, #[serde(default = "default_channels")] channels: Vec<String> }
-async fn notify(State(s): State<AppState>, headers: HeaderMap, Json(n): Json<Notify>) -> Result<Json<Api<Value>>, (StatusCode, Json<Api<Value>>)> { auth(&headers, &s).await?; send_notification(&n.title, &n.body, &n.channels).await.map_err(|e| fail(StatusCode::BAD_GATEWAY, e.to_string()))?; Ok(ok(json!({"sent":true}))) }
+async fn notify(State(s): State<AppState>, headers: HeaderMap, Json(n): Json<Notify>) -> Result<Json<Api<Value>>, (StatusCode, Json<Api<Value>>)> { auth(&headers, &s).await?; send_notification(&s.app, &n.title, &n.body, &n.channels).await.map_err(|e| fail(StatusCode::BAD_GATEWAY, e.to_string()))?; Ok(ok(json!({"sent":true}))) }
 
 fn validate(input: &JobInput) -> Result<(), (StatusCode, Json<Api<Value>>)> { if input.name.trim().is_empty() { return Err(fail(StatusCode::BAD_REQUEST, "name is required")); } if let Action::Command { program, .. } = &input.action { let allowed = env::var("LOCALPULSE_ALLOWED_PROGRAMS").unwrap_or_default(); if !allowed.split(',').map(str::trim).filter(|x| !x.is_empty()).any(|x| x == program) { return Err(fail(StatusCode::FORBIDDEN, "program is not in LOCALPULSE_ALLOWED_PROGRAMS")); } } if let Trigger::Cron { expression } = &input.trigger { Schedule::from_str(expression).map_err(|e| fail(StatusCode::BAD_REQUEST, format!("invalid cron expression: {e}")))?; } Ok(()) }
 async fn load_job(db: &SqlitePool, id: &str) -> anyhow::Result<Job> { Ok(sqlx::query_as("SELECT id,name,enabled,trigger,action,retry_config,created_at,updated_at FROM jobs WHERE id=?").bind(id).fetch_one(db).await?) }
@@ -89,31 +91,38 @@ async fn execute(s: AppState, job: Job, exec_id: String) -> anyhow::Result<()> {
             Ok((code, String::from_utf8_lossy(&output.stdout).to_string(), String::from_utf8_lossy(&output.stderr).to_string(), json!({"success": output.status.success()})))
         }
         Action::Notification { title, body, channels } => {
-            send_notification(&title, &body, &channels).await?;
+            send_notification(&s.app, &title, &body, &channels).await?;
             Ok((0, String::new(), String::new(), json!({"channels": channels})))
         }
     };
  let finished = Utc::now(); match result { Ok((code,out,err,res)) if code < 400 => { sqlx::query("UPDATE executions SET status='success',finished_at=?,exit_code=?,stdout=?,stderr=?,result=? WHERE id=?").bind(finished).bind(code).bind(out).bind(err).bind(res).bind(exec_id).execute(&s.db).await?; }, Ok((code,out,err,res)) => { sqlx::query("UPDATE executions SET status='failed',finished_at=?,exit_code=?,stdout=?,stderr=?,result=?,error=? WHERE id=?").bind(finished).bind(code).bind(out).bind(err).bind(res).bind("action returned an error").bind(exec_id).execute(&s.db).await?; }, Err(e) => { sqlx::query("UPDATE executions SET status='failed',finished_at=?,error=? WHERE id=?").bind(finished).bind(e.to_string()).bind(exec_id).execute(&s.db).await?; } } Ok(()) }
 
-async fn send_notification(title: &str, body: &str, channels: &[String]) -> anyhow::Result<()> { if channels.iter().any(|c| c == "native") { #[cfg(target_os = "macos")] { Command::new("osascript").args(["-e", &format!("display notification {:?} with title {:?}", body, title)]).output().await?; } #[cfg(target_os = "windows")] { tracing::warn!(%title, %body, "native Windows notification adapter not installed"); } #[cfg(not(any(target_os = "macos", target_os = "windows")))] { tracing::warn!(%title, %body, "native notification unsupported on this platform"); } } Ok(()) }
+async fn send_notification(app: &AppHandle, title: &str, body: &str, channels: &[String]) -> anyhow::Result<()> {
+    if !channels.iter().any(|c| c == "native") {
+        return Ok(());
+    }
+
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|error| anyhow::anyhow!("native notification failed: {error}"))?;
+
+    Ok(())
+}
 
 async fn scheduler(s: AppState) { loop { if let Ok(jobs) = sqlx::query_as::<_, Job>("SELECT id,name,enabled,trigger,action,retry_config,created_at,updated_at FROM jobs WHERE enabled=1").fetch_all(&s.db).await { for job in jobs { let trigger: Result<Trigger,_> = serde_json::from_value(job.trigger.clone()); if due(&trigger.unwrap_or(Trigger::Manual)) { let id = Uuid::new_v4().to_string(); let s2=s.clone(); tokio::spawn(async move { if let Err(e)=execute(s2,job,id).await { error!(%e,"scheduled execution failed") } }); } } } tokio::time::sleep(StdDuration::from_secs(1)).await; } }
 fn due(trigger: &Trigger) -> bool { let now=Utc::now(); match trigger { Trigger::Manual => false, Trigger::Interval { seconds } => now.timestamp() % (*seconds as i64).max(1) == 0, Trigger::Once { run_at } => (now - *run_at).num_seconds() == 0, Trigger::Cron { expression } => Schedule::from_str(expression).ok().and_then(|x| x.after(&(now-Duration::seconds(1))).next()).map(|n| (n-now).num_seconds().abs() <= 1).unwrap_or(false) } }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt().with_env_filter(env::var("RUST_LOG").unwrap_or_else(|_| "localpulse=info".into())).init();
-    run(env::var("LOCALPULSE_API_TOKEN").ok(), None).await
-}
-
-pub async fn run(token: Option<String>, shutdown: Option<tokio::sync::oneshot::Receiver<()>>) -> anyhow::Result<()> {
+pub async fn run(token: Option<String>, shutdown: Option<tokio::sync::oneshot::Receiver<()>>, app: AppHandle) -> anyhow::Result<()> {
     let path = env::var("LOCALPULSE_DATABASE").unwrap_or_else(|_| "localpulse.db".into());
     let database_url = if path.starts_with("sqlite:") { path } else { format!("sqlite://{path}?mode=rwc") };
     let db = SqlitePoolOptions::new().max_connections(5).connect(&database_url).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY,name TEXT NOT NULL,enabled BOOLEAN NOT NULL,trigger JSON NOT NULL,action JSON NOT NULL,retry_config JSON NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)").execute(&db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS executions (id TEXT PRIMARY KEY,job_id TEXT NOT NULL,status TEXT NOT NULL,started_at TEXT NOT NULL,finished_at TEXT,exit_code INTEGER,stdout TEXT,stderr TEXT,result JSON,error TEXT,attempt INTEGER NOT NULL DEFAULT 1)").execute(&db).await?;
     let token = token.unwrap_or_else(|| { let t:String=rand::thread_rng().sample_iter(&Alphanumeric).take(40).map(char::from).collect(); println!("LOCALPULSE_API_TOKEN={t}"); t });
-    let state = AppState { db, token: Arc::new(token), client: Client::new(), slots: Arc::new(Semaphore::new(4)) };
+    let state = AppState { db, token: Arc::new(token), client: Client::new(), slots: Arc::new(Semaphore::new(4)), app };
     let scheduler_task = tokio::spawn(scheduler(state.clone()));
     let app = Router::new()
         .route("/api/v1/health", get(health)).route("/health", get(health)).route("/api/v1/notify", post(notify))

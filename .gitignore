@@ -6,6 +6,7 @@ dist/
 # Rust / Tauri
 target/
 src-tauri/target/
+src-tauri/gen/
 
 # Local runtime data
 *.db
@@ -18,4 +19,3 @@ src-tauri/target/
 .idea/
 .vscode/
 *.swp
-
