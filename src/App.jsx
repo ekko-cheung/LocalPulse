@@ -100,7 +100,12 @@ export default function App() {
             <Route
               path="/"
               element={
-                <Dashboard jobs={jobs} executions={executions} onNew={() => setShowJob(true)} />
+                <Dashboard
+                  jobs={jobs}
+                  executions={executions}
+                  onNew={() => setShowJob(true)}
+                  onRefresh={refresh}
+                />
               }
             />
             <Route
@@ -115,7 +120,12 @@ export default function App() {
             <Route
               path="*"
               element={
-                <Dashboard jobs={jobs} executions={executions} onNew={() => setShowJob(true)} />
+                <Dashboard
+                  jobs={jobs}
+                  executions={executions}
+                  onNew={() => setShowJob(true)}
+                  onRefresh={refresh}
+                />
               }
             />
           </Routes>

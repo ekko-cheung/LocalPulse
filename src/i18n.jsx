@@ -39,6 +39,9 @@ const messages = {
       recentCopy: '查看任务的最新运行状态',
       viewAll: '查看全部 →',
       recentLimit: '最近 100 条',
+      taskList: '任务列表',
+      taskListCopy: '管理你的自动化任务与触发规则',
+      addTask: '添加任务',
     },
     tasks: {
       copy: '管理所有自动化任务与触发规则',
@@ -160,6 +163,9 @@ const messages = {
       recentCopy: 'View the latest task run status',
       viewAll: 'View all →',
       recentLimit: 'Latest 100',
+      taskList: 'Task list',
+      taskListCopy: 'Manage your automations and trigger rules',
+      addTask: 'Add task',
     },
     tasks: {
       copy: 'Manage all automations and trigger rules',
