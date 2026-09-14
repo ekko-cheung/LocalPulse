@@ -1,8 +1,10 @@
 export const API = 'http://127.0.0.1:7788/api/v1'
 export const invoke = (name, args) => window.__TAURI__?.core?.invoke(name, args)
 export const shortId = id => id?.slice(0, 8) || '—'
-export const prettyTime = value =>
-  value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—'
+export const prettyTime = (value, locale = 'zh') =>
+  value
+    ? new Date(value).toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US', { hour12: false })
+    : '—'
 export async function request(path, options = {}) {
   const rawToken = localStorage.getItem('localpulse-token') || ''
   const token = rawToken.trim().replace(/[\u0000-\u001f\u007f]/g, '')

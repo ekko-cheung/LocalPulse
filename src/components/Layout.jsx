@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import { navItems } from '../constants'
+import { useI18n } from '../i18n'
 export default function Layout({ agent, failedCount, children, onStart, onStop }) {
+  const { t } = useI18n()
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -11,7 +13,8 @@ export default function Layout({ agent, failedCount, children, onStart, onStop }
           </span>
         </div>
         <div className="workspace">
-          <span className="workspace-dot" /> 本机 Agent <span className="chevron">⌄</span>
+          <span className="workspace-dot" /> {t('layout.workspace')}{' '}
+          <span className="chevron">⌄</span>
         </div>
         <nav>
           {navItems.map(item => (
@@ -22,7 +25,7 @@ export default function Layout({ agent, failedCount, children, onStart, onStop }
               className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
             >
               <span className="nav-icon">{item.icon}</span>
-              {item.label}
+              {t(item.labelKey)}
               {item.path === '/history' && failedCount > 0 && (
                 <b className="nav-badge">{failedCount}</b>
               )}
@@ -33,8 +36,8 @@ export default function Layout({ agent, failedCount, children, onStart, onStop }
           <div className={`agent-mini ${agent}`}>
             <span className="pulse-dot" />
             <div>
-              <small>Agent 状态</small>
-              <strong>{agent === 'running' ? '运行中' : '已停止'}</strong>
+              <small>{t('layout.agentStatus')}</small>
+              <strong>{agent === 'running' ? t('common.running') : t('common.stopped')}</strong>
             </div>
             <button onClick={agent === 'running' ? onStop : onStart}>
               {agent === 'running' ? 'Ⅱ' : '▶'}

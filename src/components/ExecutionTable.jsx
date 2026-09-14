@@ -1,9 +1,11 @@
 import { prettyTime, shortId } from '../api'
+import { useI18n } from '../i18n'
 export function Status({ enabled, status }) {
+  const { t } = useI18n()
   return (
     <span className={`status ${status === 'success' || enabled ? 'success' : 'muted-status'}`}>
       <i />
-      {status || (enabled ? '已启用' : '已停用')}
+      {status || (enabled ? t('common.enabled') : t('common.disabled'))}
     </span>
   )
 }
@@ -12,11 +14,12 @@ export default function ExecutionTable({
   executions,
   empty = '还没有执行记录，运行一个任务试试。',
 }) {
+  const { locale, t } = useI18n()
   if (!executions.length)
     return (
       <div className="empty card">
         <div className="empty-icon">◷</div>
-        <h3>暂无执行记录</h3>
+        <h3>{t('executions.emptyTitle')}</h3>
         <p>{empty}</p>
       </div>
     )
@@ -25,11 +28,11 @@ export default function ExecutionTable({
       <table>
         <thead>
           <tr>
-            <th>任务</th>
-            <th>状态</th>
-            <th>开始时间</th>
-            <th>耗时</th>
-            <th>退出码</th>
+            <th>{t('executions.task')}</th>
+            <th>{t('executions.status')}</th>
+            <th>{t('executions.started')}</th>
+            <th>{t('executions.duration')}</th>
+            <th>{t('executions.exitCode')}</th>
           </tr>
         </thead>
         <tbody>
@@ -39,16 +42,18 @@ export default function ExecutionTable({
                 <strong>
                   {jobs.find(job => job.id === item.job_id)?.name || shortId(item.job_id)}
                 </strong>
-                <small className="cell-sub">执行 {shortId(item.id)}</small>
+                <small className="cell-sub">
+                  {t('executions.execution', { id: shortId(item.id) })}
+                </small>
               </td>
               <td>
                 <Status status={item.status} />
               </td>
-              <td>{prettyTime(item.started_at)}</td>
+              <td>{prettyTime(item.started_at, locale)}</td>
               <td>
                 {item.finished_at
                   ? `${Math.max(0, (new Date(item.finished_at) - new Date(item.started_at)) / 1000).toFixed(1)}s`
-                  : '运行中'}
+                  : t('executions.running')}
               </td>
               <td>{item.exit_code ?? '—'}</td>
             </tr>

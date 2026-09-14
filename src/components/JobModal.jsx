@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { request } from '../api'
+import { useI18n } from '../i18n'
 export default function JobModal({ onClose, onCreated }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({
     name: '',
     trigger: 'manual',
@@ -28,18 +30,18 @@ export default function JobModal({ onClose, onCreated }) {
           : form.trigger === 'cron'
             ? { type: 'cron', expression: form.triggerValue.trim() }
             : { type: 'interval', seconds: Number(form.triggerValue) }
-      if (form.trigger === 'cron' && !trigger.expression) throw new Error('请输入 Cron 表达式')
+      if (form.trigger === 'cron' && !trigger.expression) throw new Error(t('modal.cronRequired'))
       if (
         form.trigger === 'interval' &&
         (!Number.isInteger(trigger.seconds) || trigger.seconds < 1)
       )
-        throw new Error('间隔秒数必须是大于 0 的整数')
+        throw new Error(t('modal.intervalInvalid'))
       const actionConfig = JSON.parse(form.config)
       if (
         form.action === 'command' &&
         (!actionConfig.program || typeof actionConfig.program !== 'string')
       )
-        throw new Error('本地程序配置必须包含 program 字段')
+        throw new Error(t('modal.commandInvalid'))
       await request('/jobs', {
         method: 'POST',
         body: JSON.stringify({
@@ -58,8 +60,8 @@ export default function JobModal({ onClose, onCreated }) {
       <form className="modal-card job-card" onSubmit={submit}>
         <div className="modal-header">
           <div>
-            <p className="eyebrow">NEW AUTOMATION</p>
-            <h2>创建新任务</h2>
+            <p className="eyebrow">{t('modal.newAutomation')}</p>
+            <h2>{t('modal.createTitle')}</h2>
           </div>
           <button type="button" className="close" onClick={onClose}>
             ×
@@ -67,35 +69,39 @@ export default function JobModal({ onClose, onCreated }) {
         </div>
         <div className="form-grid">
           <div className="full">
-            <label className="form-label">任务名称</label>
+            <label className="form-label">{t('modal.name')}</label>
             <input
               autoFocus
               className="text-input"
               required
-              placeholder="例如：每日同步报告"
+              placeholder={t('modal.namePlaceholder')}
               value={form.name}
               onChange={e => update('name', e.target.value)}
             />
           </div>
           <div>
-            <label className="form-label">触发方式</label>
+            <label className="form-label">{t('modal.trigger')}</label>
             <select
               className="text-input"
               value={form.trigger}
               onChange={e => update('trigger', e.target.value)}
             >
-              <option value="manual">手动触发</option>
-              <option value="interval">固定间隔</option>
-              <option value="cron">Cron</option>
+              <option value="manual">{t('modal.manualTrigger')}</option>
+              <option value="interval">{t('modal.interval')}</option>
+              <option value="cron">{t('modal.cron')}</option>
             </select>
           </div>
           <div>
             <label className="form-label">
-              {form.trigger === 'cron' ? 'Cron 表达式' : '间隔秒数'}
+              {form.trigger === 'cron' ? t('modal.cronExpression') : t('modal.intervalSeconds')}
             </label>
             <input
               className="text-input"
-              placeholder={form.trigger === 'cron' ? '例如：0 0/5 * * * * *' : '例如：3600'}
+              placeholder={
+                form.trigger === 'cron'
+                  ? t('modal.cronPlaceholder')
+                  : t('modal.intervalPlaceholder')
+              }
               required={form.trigger !== 'manual'}
               value={form.triggerValue}
               onChange={e => update('triggerValue', e.target.value)}
@@ -103,20 +109,20 @@ export default function JobModal({ onClose, onCreated }) {
             />
           </div>
           <div>
-            <label className="form-label">动作类型</label>
+            <label className="form-label">{t('modal.actionType')}</label>
             <select
               className="text-input"
               value={form.action}
               onChange={e => update('action', e.target.value)}
             >
-              <option value="http">HTTP 请求</option>
-              <option value="command">本地程序</option>
-              <option value="notification">系统通知</option>
+              <option value="http">{t('modal.http')}</option>
+              <option value="command">{t('modal.command')}</option>
+              <option value="notification">{t('modal.notification')}</option>
             </select>
           </div>
           <div className="full">
             <label className="form-label">
-              动作配置 <span>JSON</span>
+              {t('modal.actionConfig')} <span>JSON</span>
             </label>
             <textarea
               className="text-input code"
@@ -129,9 +135,9 @@ export default function JobModal({ onClose, onCreated }) {
         {error && <div className="form-error">{error}</div>}
         <div className="modal-footer">
           <button type="button" className="secondary" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
-          <button className="primary">创建任务</button>
+          <button className="primary">{t('modal.create')}</button>
         </div>
       </form>
     </div>

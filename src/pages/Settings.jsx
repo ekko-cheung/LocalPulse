@@ -1,39 +1,41 @@
 import { useState } from 'react'
+import { useI18n } from '../i18n'
 export default function Settings({ agent, onStart, onStop }) {
+  const { locale, setLocale, t } = useI18n()
   const [value, setValue] = useState(localStorage.getItem('localpulse-token') || '')
   return (
     <div className="settings-grid">
       <section className="card settings-card">
         <div className="card-title">
           <div>
-            <h3>Agent 连接</h3>
-            <p>管理本机 Agent 服务进程</p>
+            <h3>{t('settings.connection')}</h3>
+            <p>{t('settings.connectionCopy')}</p>
           </div>
           <span className={`large-status ${agent}`}>
             <i />
-            {agent === 'running' ? '运行中' : '已停止'}
+            {agent === 'running' ? t('common.running') : t('common.stopped')}
           </span>
         </div>
         <div className="setting-row">
           <div>
-            <strong>服务地址</strong>
-            <small>Agent 默认仅监听本机回环地址</small>
+            <strong>{t('settings.address')}</strong>
+            <small>{t('settings.addressCopy')}</small>
           </div>
           <code>127.0.0.1:7788</code>
         </div>
         <div className="setting-row">
           <div>
-            <strong>进程控制</strong>
-            <small>GUI 启动时会自动拉起 Agent</small>
+            <strong>{t('settings.process')}</strong>
+            <small>{t('settings.processCopy')}</small>
           </div>
           <div>
             {agent === 'running' ? (
               <button className="danger-button" onClick={onStop}>
-                停止 Agent
+                {t('settings.stop')}
               </button>
             ) : (
               <button className="primary" onClick={onStart}>
-                启动 Agent
+                {t('settings.start')}
               </button>
             )}
           </div>
@@ -42,12 +44,12 @@ export default function Settings({ agent, onStart, onStop }) {
       <section className="card settings-card">
         <div className="card-title">
           <div>
-            <h3>安全设置</h3>
-            <p>API Token 用于保护本机接口</p>
+            <h3>{t('settings.security')}</h3>
+            <p>{t('settings.securityCopy')}</p>
           </div>
           <span className="lock">⌑</span>
         </div>
-        <label className="form-label">API Token</label>
+        <label className="form-label">{t('common.apiToken')}</label>
         <input
           className="text-input"
           type="password"
@@ -61,9 +63,22 @@ export default function Settings({ agent, onStart, onStop }) {
             onStart()
           }}
         >
-          保存 Token
+          {t('common.save')} Token
         </button>
-        <p className="hint">Token 只保存在当前用户的本地应用存储中。</p>
+        <p className="hint">{t('settings.tokenLocal')}</p>
+        <div className="setting-row language-row">
+          <div>
+            <strong>{t('common.language')}</strong>
+          </div>
+          <select
+            className="text-input language-select"
+            value={locale}
+            onChange={e => setLocale(e.target.value)}
+          >
+            <option value="zh">{t('common.chinese')}</option>
+            <option value="en">{t('common.english')}</option>
+          </select>
+        </div>
       </section>
     </div>
   )

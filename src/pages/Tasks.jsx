@@ -1,26 +1,28 @@
 import JobTable from '../components/JobTable'
+import { useI18n } from '../i18n'
 export default function Tasks({ jobs, onNew, onRefresh }) {
+  const { t } = useI18n()
   return (
     <>
       <div className="page-intro">
-        <p>管理所有自动化任务与触发规则</p>
+        <p>{t('tasks.copy')}</p>
         <div className="intro-actions">
           <button className="secondary" onClick={onRefresh}>
-            ↻ 刷新
+            {t('tasks.refresh')}
           </button>
           <button className="primary" onClick={onNew}>
-            ＋ 新建任务
+            {t('tasks.create')}
           </button>
         </div>
       </div>
       <div className="filter-row">
         <span className="filter active">
-          全部 <b>{jobs.length}</b>
+          {t('tasks.all')} <b>{jobs.length}</b>
         </span>
         <span className="filter">
-          已启用 <b>{jobs.filter(x => x.enabled).length}</b>
+          {t('tasks.enabled')} <b>{jobs.filter(x => x.enabled).length}</b>
         </span>
-        <span className="filter">手动任务</span>
+        <span className="filter">{t('tasks.manual')}</span>
       </div>
       <JobTable jobs={jobs} onRefresh={onRefresh} />
     </>

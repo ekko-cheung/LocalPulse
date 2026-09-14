@@ -9,8 +9,10 @@ import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import History from './pages/History'
 import Settings from './pages/Settings'
+import { useI18n } from './i18n'
 
 export default function App() {
+  const { t } = useI18n()
   const [jobs, setJobs] = useState([])
   const [executions, setExecutions] = useState([])
   const [agent, setAgent] = useState('stopped')
@@ -92,7 +94,7 @@ export default function App() {
       <main className="content">
         <PageHeader agent={agent} error={error} onClearError={() => setError('')} />
         {loading ? (
-          <div className="loading">正在加载工作台…</div>
+          <div className="loading">{t('loading')}</div>
         ) : (
           <Routes>
             <Route

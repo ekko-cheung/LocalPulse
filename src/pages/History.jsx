@@ -1,11 +1,13 @@
 import ExecutionTable from '../components/ExecutionTable'
+import { useI18n } from '../i18n'
 export default function History({ jobs, executions }) {
+  const { t } = useI18n()
   return (
     <>
       <div className="page-intro">
-        <p>所有任务的运行轨迹、输出与错误信息</p>
+        <p>{t('history.copy')}</p>
       </div>
-      <ExecutionTable jobs={jobs} executions={executions} empty="暂无执行历史。" />
+      <ExecutionTable jobs={jobs} executions={executions} empty={t('history.empty')} />
     </>
   )
 }

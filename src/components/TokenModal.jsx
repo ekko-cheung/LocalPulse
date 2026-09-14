@@ -1,19 +1,21 @@
 import { useState } from 'react'
+import { useI18n } from '../i18n'
 export default function TokenModal({ onSaved }) {
+  const { t } = useI18n()
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
   return (
     <div className="modal-backdrop">
       <div className="modal-card token-card">
         <div className="modal-icon">⌁</div>
-        <h2>先连接你的 Agent</h2>
-        <p>LocalPulse 需要 API Token 才能安全启动本机 Agent。你可以在后端启动日志中找到它。</p>
-        <label className="form-label">API Token</label>
+        <h2>{t('token.title')}</h2>
+        <p>{t('token.copy')}</p>
+        <label className="form-label">{t('common.apiToken')}</label>
         <input
           autoFocus
           className="text-input"
           type="password"
-          placeholder="输入 API Token"
+          placeholder={t('token.placeholder')}
           value={value}
           onChange={e => setValue(e.target.value)}
         />
@@ -21,14 +23,14 @@ export default function TokenModal({ onSaved }) {
         <button
           className="primary wide"
           onClick={() => {
-            if (!value.trim()) setError('Token 不能为空')
+            if (!value.trim()) setError(t('token.empty'))
             else {
               localStorage.setItem('localpulse-token', value.trim())
               onSaved()
             }
           }}
         >
-          保存并启动 Agent
+          {t('token.saveStart')}
         </button>
       </div>
     </div>

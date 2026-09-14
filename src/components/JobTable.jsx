@@ -1,15 +1,17 @@
 import { request, shortId } from '../api'
 import { Status } from './ExecutionTable'
 import { useState } from 'react'
+import { useI18n } from '../i18n'
 export default function JobTable({ jobs, onRefresh }) {
+  const { t } = useI18n()
   const [pendingDelete, setPendingDelete] = useState(null)
   const [busy, setBusy] = useState(false)
   if (!jobs.length)
     return (
       <div className="empty card">
         <div className="empty-icon">✦</div>
-        <h3>还没有任务</h3>
-        <p>创建第一个任务，让 LocalPulse 帮你自动执行。</p>
+        <h3>{t('jobs.emptyTitle')}</h3>
+        <p>{t('jobs.emptyCopy')}</p>
       </div>
     )
   const remove = async () => {
@@ -31,10 +33,10 @@ export default function JobTable({ jobs, onRefresh }) {
         <table>
           <thead>
             <tr>
-              <th>任务</th>
-              <th>触发方式</th>
-              <th>动作</th>
-              <th>状态</th>
+              <th>{t('jobs.task')}</th>
+              <th>{t('jobs.trigger')}</th>
+              <th>{t('jobs.action')}</th>
+              <th>{t('jobs.status')}</th>
               <th />
             </tr>
           </thead>
@@ -60,11 +62,11 @@ export default function JobTable({ jobs, onRefresh }) {
                   <span className="trigger">
                     <i />
                     {job.trigger.type === 'interval'
-                      ? `每 ${job.trigger.seconds}s`
+                      ? t('jobs.interval', { seconds: job.trigger.seconds })
                       : job.trigger.type === 'cron'
-                        ? `Cron：${job.trigger.expression}`
+                        ? t('jobs.cron', { expression: job.trigger.expression })
                         : job.trigger.type === 'manual'
-                          ? '手动触发'
+                          ? t('jobs.manual')
                           : job.trigger.type}
                   </span>
                 </td>
@@ -86,10 +88,10 @@ export default function JobTable({ jobs, onRefresh }) {
                       }
                     }}
                   >
-                    运行 →
+                    {t('jobs.run')}
                   </button>
                   <button className="row-delete" onClick={() => setPendingDelete(job)}>
-                    删除
+                    {t('common.delete')}
                   </button>
                 </td>
               </tr>
@@ -101,14 +103,14 @@ export default function JobTable({ jobs, onRefresh }) {
         <div className="confirm-backdrop">
           <div className="confirm-card">
             <div className="confirm-icon">!</div>
-            <h3>删除这个任务？</h3>
-            <p>“{pendingDelete.name}”以及相关配置将被删除，此操作无法撤销。</p>
+            <h3>{t('jobs.deleteQuestion')}</h3>
+            <p>{t('jobs.deleteCopy', { name: pendingDelete.name })}</p>
             <div className="confirm-actions">
               <button className="secondary" onClick={() => setPendingDelete(null)} disabled={busy}>
-                取消
+                {t('common.cancel')}
               </button>
               <button className="danger-button" onClick={remove} disabled={busy}>
-                {busy ? '删除中…' : '确认删除'}
+                {busy ? t('common.deleting') : t('common.confirmDelete')}
               </button>
             </div>
           </div>
