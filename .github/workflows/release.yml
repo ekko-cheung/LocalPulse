@@ -54,6 +54,9 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Build frontend
+        run: pnpm build
+
       - name: Build desktop bundle
         run: pnpm exec tauri build --config src-tauri/tauri.conf.json
 
@@ -63,4 +66,3 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.path }}
           if-no-files-found: error
-
