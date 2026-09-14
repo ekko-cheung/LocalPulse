@@ -62,3 +62,34 @@ jobs:
           name: ${{ matrix.artifact }}
           path: target/release/bundle/**/*
           if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows bundles
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-bundles
+          path: release-assets/windows
+
+      - name: Download macOS bundles
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-bundles
+          path: release-assets/macos
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: LocalPulse ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            release-assets/windows/**/*
+            release-assets/macos/**/*
