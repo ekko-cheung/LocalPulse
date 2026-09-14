@@ -61,9 +61,11 @@ export default function JobTable({ jobs, onRefresh }) {
                     <i />
                     {job.trigger.type === 'interval'
                       ? `每 ${job.trigger.seconds}s`
-                      : job.trigger.type === 'manual'
-                        ? '手动触发'
-                        : job.trigger.type}
+                      : job.trigger.type === 'cron'
+                        ? `Cron：${job.trigger.expression}`
+                        : job.trigger.type === 'manual'
+                          ? '手动触发'
+                          : job.trigger.type}
                   </span>
                 </td>
                 <td>

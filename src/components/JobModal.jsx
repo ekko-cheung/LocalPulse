@@ -26,8 +26,14 @@ export default function JobModal({ onClose, onCreated }) {
         form.trigger === 'manual'
           ? { type: 'manual' }
           : form.trigger === 'cron'
-            ? { type: 'cron', expression: form.triggerValue }
+            ? { type: 'cron', expression: form.triggerValue.trim() }
             : { type: 'interval', seconds: Number(form.triggerValue) }
+      if (form.trigger === 'cron' && !trigger.expression) throw new Error('请输入 Cron 表达式')
+      if (
+        form.trigger === 'interval' &&
+        (!Number.isInteger(trigger.seconds) || trigger.seconds < 1)
+      )
+        throw new Error('间隔秒数必须是大于 0 的整数')
       const actionConfig = JSON.parse(form.config)
       if (
         form.action === 'command' &&
@@ -89,6 +95,8 @@ export default function JobModal({ onClose, onCreated }) {
             </label>
             <input
               className="text-input"
+              placeholder={form.trigger === 'cron' ? '例如：0 0/5 * * * * *' : '例如：3600'}
+              required={form.trigger !== 'manual'}
               value={form.triggerValue}
               onChange={e => update('triggerValue', e.target.value)}
               disabled={form.trigger === 'manual'}

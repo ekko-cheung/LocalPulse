@@ -8,6 +8,8 @@ LocalPulse 是一个轻量级跨平台桌面 Agent，用于本机任务调度、
 
 - 本地 HTTP API：`127.0.0.1:7788`
 - Cron、指定时间、固定间隔和手动触发
+
+创建任务时可选择 Cron 触发方式。Cron 使用 7 段格式（秒、分、时、日、月、星期、年），例如 `0 0/5 * * * * *` 表示每 5 分钟执行一次。
 - HTTP 请求、本地程序和系统通知
 - SQLite 持久化与执行历史
 - Bearer Token 鉴权和本地程序白名单
@@ -78,4 +80,3 @@ git push origin v0.1.0
 Workflow 会构建 Windows 和 macOS 未签名安装包，并上传为 GitHub Actions Artifacts。后续可以通过 GitHub Secrets 增加代码签名和 notarization。
 
 英文文档请查看 [README.md](README.md)。
-

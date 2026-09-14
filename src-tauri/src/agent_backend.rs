@@ -112,7 +112,26 @@ async fn send_notification(app: &AppHandle, title: &str, body: &str, channels: &
     Ok(())
 }
 
-async fn scheduler(s: AppState) { loop { if let Ok(jobs) = sqlx::query_as::<_, Job>("SELECT id,name,enabled,trigger,action,retry_config,created_at,updated_at FROM jobs WHERE enabled=1").fetch_all(&s.db).await { for job in jobs { let trigger: Result<Trigger,_> = serde_json::from_value(job.trigger.clone()); if due(&trigger.unwrap_or(Trigger::Manual)) { let id = Uuid::new_v4().to_string(); let s2=s.clone(); tokio::spawn(async move { if let Err(e)=execute(s2,job,id).await { error!(%e,"scheduled execution failed") } }); } } } tokio::time::sleep(StdDuration::from_secs(1)).await; } }
+async fn scheduler(s: AppState) {
+    // The scheduler polls once per second. Keep the last fired Unix second per
+    // job so a matching cron expression cannot enqueue the same job twice.
+    let mut last_fired: HashMap<String, i64> = HashMap::new();
+    loop {
+        if let Ok(jobs) = sqlx::query_as::<_, Job>("SELECT id,name,enabled,trigger,action,retry_config,created_at,updated_at FROM jobs WHERE enabled=1").fetch_all(&s.db).await {
+            for job in jobs {
+                let trigger: Result<Trigger,_> = serde_json::from_value(job.trigger.clone());
+                let now_second = Utc::now().timestamp();
+                if due(&trigger.unwrap_or(Trigger::Manual)) && last_fired.get(&job.id) != Some(&now_second) {
+                    last_fired.insert(job.id.clone(), now_second);
+                    let id = Uuid::new_v4().to_string();
+                    let s2=s.clone();
+                    tokio::spawn(async move { if let Err(e)=execute(s2,job,id).await { error!(%e,"scheduled execution failed") } });
+                }
+            }
+        }
+        tokio::time::sleep(StdDuration::from_secs(1)).await;
+    }
+}
 fn due(trigger: &Trigger) -> bool { let now=Utc::now(); match trigger { Trigger::Manual => false, Trigger::Interval { seconds } => now.timestamp() % (*seconds as i64).max(1) == 0, Trigger::Once { run_at } => (now - *run_at).num_seconds() == 0, Trigger::Cron { expression } => Schedule::from_str(expression).ok().and_then(|x| x.after(&(now-Duration::seconds(1))).next()).map(|n| (n-now).num_seconds().abs() <= 1).unwrap_or(false) } }
 
 pub async fn run(token: Option<String>, shutdown: Option<tokio::sync::oneshot::Receiver<()>>, app: AppHandle) -> anyhow::Result<()> {
