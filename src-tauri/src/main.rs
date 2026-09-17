@@ -9,13 +9,20 @@ use tauri::{
     tray::TrayIconBuilder,
     Manager, WindowEvent,
 };
-use tokio::{runtime::Runtime, sync::oneshot, task::JoinHandle};
+use tokio::{
+    runtime::Runtime,
+    sync::oneshot,
+    task::JoinHandle,
+    time::{timeout, Duration},
+};
 
 mod agent;
 
+type AgentTask = (JoinHandle<anyhow::Result<()>>, oneshot::Sender<()>);
+
 struct AgentProcess {
     runtime: Runtime,
-    task: Mutex<Option<(JoinHandle<anyhow::Result<()>>, oneshot::Sender<()>)>>,
+    task: Mutex<Option<AgentTask>>,
     last_error: Arc<Mutex<Option<String>>>,
 }
 
@@ -72,14 +79,20 @@ fn start_agent(
 }
 
 #[tauri::command]
-fn stop_agent(state: tauri::State<'_, AgentProcess>) -> Result<String, String> {
-    let mut process = state
-        .task
-        .lock()
-        .map_err(|_| "无法获取 Agent 状态".to_string())?;
-    if let Some((task, sender)) = process.take() {
+async fn stop_agent(state: tauri::State<'_, AgentProcess>) -> Result<String, String> {
+    let process = {
+        let mut process = state
+            .task
+            .lock()
+            .map_err(|_| "无法获取 Agent 状态".to_string())?;
+        process.take()
+    };
+    if let Some((mut task, sender)) = process {
         let _ = sender.send(());
-        task.abort();
+        if timeout(Duration::from_secs(2), &mut task).await.is_err() {
+            task.abort();
+            let _ = task.await;
+        }
     }
     Ok("stopped".into())
 }

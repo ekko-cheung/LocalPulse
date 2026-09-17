@@ -12,12 +12,21 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, SqlitePool};
 use std::{
-    collections::HashMap, env, net::SocketAddr, str::FromStr, sync::Arc,
+    collections::HashMap,
+    env,
+    net::SocketAddr,
+    str::FromStr,
+    sync::{Arc, Mutex},
     time::Duration as StdDuration,
 };
 use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
-use tokio::{process::Command, sync::Semaphore, time::timeout};
+use tokio::{
+    process::Command,
+    sync::Semaphore,
+    task::{JoinHandle, JoinSet},
+    time::timeout,
+};
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -31,6 +40,56 @@ struct AppState {
     client: Client,
     slots: Arc<Semaphore>,
     app: AppHandle,
+    active_executions: Arc<ActiveExecutions>,
+}
+
+#[derive(Default)]
+struct ActiveExecutions(Mutex<Vec<JoinHandle<()>>>);
+
+impl ActiveExecutions {
+    fn add(&self, task: JoinHandle<()>) -> Result<(), JoinHandle<()>> {
+        match self.0.lock() {
+            Ok(mut tasks) => {
+                tasks.retain(|task| !task.is_finished());
+                tasks.push(task);
+                Ok(())
+            }
+            Err(_) => Err(task),
+        }
+    }
+
+    fn abort_all(&self) {
+        if let Ok(mut tasks) = self.0.lock() {
+            for task in tasks.drain(..) {
+                task.abort();
+            }
+        }
+    }
+}
+
+impl Drop for ActiveExecutions {
+    fn drop(&mut self) {
+        self.abort_all();
+    }
+}
+
+#[derive(Clone)]
+struct ExecutionState {
+    db: SqlitePool,
+    client: Client,
+    slots: Arc<Semaphore>,
+    app: AppHandle,
+}
+
+impl AppState {
+    fn execution_state(&self) -> ExecutionState {
+        ExecutionState {
+            db: self.db.clone(),
+            client: self.client.clone(),
+            slots: self.slots.clone(),
+            app: self.app.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -286,12 +345,19 @@ async fn run_job(
         .await
         .map_err(|_| fail(StatusCode::NOT_FOUND, "job not found"))?;
     let exec_id = Uuid::new_v4().to_string();
-    let s2 = s.clone();
-    tokio::spawn(async move {
+    let s2 = s.execution_state();
+    let task = tokio::spawn(async move {
         if let Err(e) = execute(s2, job, exec_id.clone()).await {
             error!(%exec_id, %e, "job execution failed")
         }
     });
+    if let Err(task) = s.active_executions.add(task) {
+        task.abort();
+        return Err(fail(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "execution manager unavailable",
+        ));
+    }
     Ok(ok(json!({"queued":true,"job_id":id})))
 }
 async fn executions(
@@ -369,7 +435,7 @@ async fn load_job(db: &SqlitePool, id: &str) -> anyhow::Result<Job> {
     Ok(sqlx::query_as("SELECT id,name,enabled,trigger,action,retry_config,created_at,updated_at FROM jobs WHERE id=?").bind(id).fetch_one(db).await?)
 }
 
-async fn execute(s: AppState, job: Job, exec_id: String) -> anyhow::Result<()> {
+async fn execute(s: ExecutionState, job: Job, exec_id: String) -> anyhow::Result<()> {
     let _permit = s.slots.acquire().await?;
     let started = Utc::now();
     sqlx::query("INSERT INTO executions (id,job_id,status,started_at,attempt) VALUES (?,?,?, ?,1)")
@@ -479,34 +545,42 @@ async fn send_notification(
 
 async fn scheduler(s: AppState) {
     // The scheduler polls once per second. Keep the last fired Unix second per
-    // job so a matching cron expression cannot enqueue the same job twice.
+    // job so a matching trigger cannot enqueue the same job twice.
     let mut last_fired: HashMap<String, i64> = HashMap::new();
+    let mut executions = JoinSet::new();
+    let mut ticker = tokio::time::interval(StdDuration::from_secs(1));
     loop {
+        ticker.tick().await;
+        while executions.try_join_next().is_some() {}
+
         if let Ok(jobs) = sqlx::query_as::<_, Job>("SELECT id,name,enabled,trigger,action,retry_config,created_at,updated_at FROM jobs WHERE enabled=1").fetch_all(&s.db).await {
+            let now = Utc::now();
+            let now_second = now.timestamp();
             for job in jobs {
                 let trigger: Result<Trigger,_> = serde_json::from_value(job.trigger.clone());
-                let now_second = Utc::now().timestamp();
-                if due(&trigger.unwrap_or(Trigger::Manual)) && last_fired.get(&job.id) != Some(&now_second) {
+                if due_at(&trigger.unwrap_or(Trigger::Manual), now) && last_fired.get(&job.id) != Some(&now_second) {
                     last_fired.insert(job.id.clone(), now_second);
                     let id = Uuid::new_v4().to_string();
-                    let s2=s.clone();
-                    tokio::spawn(async move { if let Err(e)=execute(s2,job,id).await { error!(%e,"scheduled execution failed") } });
+                    let s2=s.execution_state();
+                    executions.spawn(async move {
+                        if let Err(e)=execute(s2,job,id).await { error!(%e,"scheduled execution failed") }
+                    });
                 }
             }
         }
-        tokio::time::sleep(StdDuration::from_secs(1)).await;
     }
 }
-fn due(trigger: &Trigger) -> bool {
-    let now = Utc::now();
+fn due_at(trigger: &Trigger, now: chrono::DateTime<Utc>) -> bool {
     match trigger {
         Trigger::Manual => false,
         Trigger::Interval { seconds } => now.timestamp() % (*seconds as i64).max(1) == 0,
         Trigger::Once { run_at } => (now - *run_at).num_seconds() == 0,
-        Trigger::Cron { expression } => Schedule::from_str(expression)
+        Trigger::Cron { expression } => Schedule::from_str(expression.trim())
             .ok()
             .and_then(|x| x.after(&(now - Duration::seconds(1))).next())
-            .map(|n| (n - now).num_seconds().abs() <= 1)
+            // Cron occurrences have second precision. Comparing timestamps
+            // avoids firing once before and once after the same occurrence.
+            .map(|n| n.timestamp() == now.timestamp())
             .unwrap_or(false),
     }
 }
@@ -543,8 +617,8 @@ pub async fn run(
         client: Client::new(),
         slots: Arc::new(Semaphore::new(4)),
         app,
+        active_executions: Arc::new(ActiveExecutions::default()),
     };
-    let scheduler_task = tokio::spawn(scheduler(state.clone()));
     let app = Router::new()
         .route("/api/v1/health", get(health))
         .route("/health", get(health))
@@ -560,23 +634,36 @@ pub async fn run(
         .route("/api/v1/jobs/:id/executions", get(executions))
         .route("/api/v1/executions/:id", get(get_execution))
         .layer(CorsLayer::permissive())
-        .with_state(state);
+        .with_state(state.clone());
     let host = env::var("LOCALPULSE_HOST").unwrap_or_else(|_| "127.0.0.1".into());
     let port = env::var("LOCALPULSE_PORT").unwrap_or_else(|_| "7788".into());
     let addr: SocketAddr = format!("{host}:{port}").parse()?;
     info!(%addr, "LocalPulse listening");
     let listener = tokio::net::TcpListener::bind(addr).await?;
+    // Bind before starting the scheduler. If another Agent already owns the
+    // port, this instance must not leave a scheduler running in the background.
+    let scheduler = scheduler(state.clone());
+    tokio::pin!(scheduler);
     if let Some(mut shutdown) = shutdown {
-        tokio::select! { result = axum::serve(listener, app) => { result?; }, _ = &mut shutdown => { scheduler_task.abort(); } }
+        tokio::select! {
+            result = axum::serve(listener, app) => { result?; },
+            _ = &mut shutdown => {},
+            _ = &mut scheduler => {},
+        }
     } else {
-        axum::serve(listener, app).await?;
+        tokio::select! {
+            result = axum::serve(listener, app) => { result?; },
+            _ = &mut scheduler => {},
+        }
     }
+    state.active_executions.abort_all();
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::validate_cron_expression;
+    use super::{due_at, validate_cron_expression, Trigger};
+    use chrono::{TimeZone, Utc};
 
     #[test]
     fn accepts_a_valid_cron_expression() {
@@ -586,5 +673,19 @@ mod tests {
     #[test]
     fn rejects_an_invalid_cron_expression() {
         assert!(validate_cron_expression("not a cron expression").is_err());
+    }
+
+    #[test]
+    fn cron_fires_only_during_the_matching_second() {
+        let trigger = Trigger::Cron {
+            expression: "0/10 * * * * ?".into(),
+        };
+        let before = Utc.with_ymd_and_hms(2026, 9, 17, 14, 0, 9).unwrap();
+        let matching = Utc.with_ymd_and_hms(2026, 9, 17, 14, 0, 10).unwrap();
+        let after = Utc.with_ymd_and_hms(2026, 9, 17, 14, 0, 11).unwrap();
+
+        assert!(!due_at(&trigger, before));
+        assert!(due_at(&trigger, matching));
+        assert!(!due_at(&trigger, after));
     }
 }
