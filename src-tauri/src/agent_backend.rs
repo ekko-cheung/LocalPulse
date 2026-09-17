@@ -22,6 +22,8 @@ use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 use uuid::Uuid;
 
+pub const ALLOWED_PROGRAMS_ENV: &str = "LOCALPULSE_ALLOWED_PROGRAMS";
+
 #[derive(Clone)]
 struct AppState {
     db: SqlitePool,
@@ -334,7 +336,7 @@ fn validate(input: &JobInput) -> Result<(), (StatusCode, Json<Api<Value>>)> {
         return Err(fail(StatusCode::BAD_REQUEST, "name is required"));
     }
     if let Action::Command { program, .. } = &input.action {
-        let allowed = env::var("LOCALPULSE_ALLOWED_PROGRAMS").unwrap_or_default();
+        let allowed = env::var(ALLOWED_PROGRAMS_ENV).unwrap_or_default();
         if !allowed
             .split(',')
             .map(str::trim)
@@ -343,12 +345,12 @@ fn validate(input: &JobInput) -> Result<(), (StatusCode, Json<Api<Value>>)> {
         {
             return Err(fail(
                 StatusCode::FORBIDDEN,
-                "program is not in LOCALPULSE_ALLOWED_PROGRAMS",
+                format!("program is not in {ALLOWED_PROGRAMS_ENV}"),
             ));
         }
     }
     if let Trigger::Cron { expression } = &input.trigger {
-        Schedule::from_str(expression).map_err(|e| {
+        validate_cron_expression(expression).map_err(|e| {
             fail(
                 StatusCode::BAD_REQUEST,
                 format!("invalid cron expression: {e}"),
@@ -356,6 +358,12 @@ fn validate(input: &JobInput) -> Result<(), (StatusCode, Json<Api<Value>>)> {
         })?;
     }
     Ok(())
+}
+
+pub fn validate_cron_expression(expression: &str) -> Result<(), String> {
+    Schedule::from_str(expression.trim())
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 async fn load_job(db: &SqlitePool, id: &str) -> anyhow::Result<Job> {
     Ok(sqlx::query_as("SELECT id,name,enabled,trigger,action,retry_config,created_at,updated_at FROM jobs WHERE id=?").bind(id).fetch_one(db).await?)
@@ -564,4 +572,19 @@ pub async fn run(
         axum::serve(listener, app).await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_cron_expression;
+
+    #[test]
+    fn accepts_a_valid_cron_expression() {
+        assert!(validate_cron_expression(" 0 0/5 * * * * * ").is_ok());
+    }
+
+    #[test]
+    fn rejects_an_invalid_cron_expression() {
+        assert!(validate_cron_expression("not a cron expression").is_err());
+    }
 }

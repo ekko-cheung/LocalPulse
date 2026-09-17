@@ -32,7 +32,7 @@ cargo tauri dev --manifest-path src-tauri/Cargo.toml
 
 The application starts the Agent internally. On first launch, the UI asks for an API token. On later launches, the saved token is used to start the Agent automatically.
 
-To allow local commands, configure the allowlist before launching:
+To allow local commands, configure the `LOCALPULSE_ALLOWED_PROGRAMS` allowlist in Settings. Values are comma-separated program names or full paths. The setting is persisted locally and applied to the Agent process. It can also be configured before launching:
 
 ```bash
 export LOCALPULSE_ALLOWED_PROGRAMS="python,node,/Users/you/scripts/backup.sh"
@@ -85,4 +85,3 @@ git push origin v0.1.0
 The workflow builds unsigned Windows and macOS bundles and uploads them as GitHub Actions artifacts. Code signing and notarization can be added later with repository secrets.
 
 For Chinese documentation, see [README-zh.md](README-zh.md).
-

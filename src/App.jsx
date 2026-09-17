@@ -10,6 +10,7 @@ import Tasks from './pages/Tasks'
 import History from './pages/History'
 import Settings from './pages/Settings'
 import { useI18n } from './i18n'
+import { ALLOWED_PROGRAMS_STORAGE_KEY } from './constants'
 
 export default function App() {
   const { t } = useI18n()
@@ -43,6 +44,10 @@ export default function App() {
       return
     }
     try {
+      const allowedPrograms = localStorage.getItem(ALLOWED_PROGRAMS_STORAGE_KEY)
+      if (allowedPrograms !== null) {
+        await invoke('set_allowed_programs', { value: allowedPrograms })
+      }
       await invoke('start_agent', { token })
       let ready = false
       for (let i = 0; i < 20; i += 1) {

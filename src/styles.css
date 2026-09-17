@@ -654,6 +654,18 @@ tbody tr:hover {
 .save {
   margin-top: 13px;
 }
+.settings-divider {
+  border-top: 1px solid #edf0f4;
+  margin-top: 23px;
+}
+.save-status {
+  color: #35a96d !important;
+  margin: 10px 0 0 !important;
+}
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .hint {
   color: #a5aebb;
   font-size: 10px;

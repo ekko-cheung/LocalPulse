@@ -104,6 +104,26 @@ fn agent_status(state: tauri::State<'_, AgentProcess>) -> Result<String, String>
     Ok("stopped".into())
 }
 
+#[tauri::command]
+fn get_allowed_programs() -> String {
+    std::env::var(agent::ALLOWED_PROGRAMS_ENV).unwrap_or_default()
+}
+
+#[tauri::command]
+fn set_allowed_programs(value: String) -> Result<String, String> {
+    let value = value.trim();
+    if value.contains('\0') {
+        return Err("程序白名单不能包含空字符".into());
+    }
+    std::env::set_var(agent::ALLOWED_PROGRAMS_ENV, value);
+    Ok(value.into())
+}
+
+#[tauri::command]
+fn validate_cron(expression: String) -> Result<(), String> {
+    agent::validate_cron_expression(&expression)
+}
+
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "localpulse=info".into()))
@@ -118,7 +138,10 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             start_agent,
             stop_agent,
-            agent_status
+            agent_status,
+            get_allowed_programs,
+            set_allowed_programs,
+            validate_cron
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "打开应用", true, None::<&str>)?;

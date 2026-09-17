@@ -1,8 +1,50 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { invoke } from '../api'
+import { ALLOWED_PROGRAMS_STORAGE_KEY } from '../constants'
 import { useI18n } from '../i18n'
 export default function Settings({ agent, onStart, onStop }) {
   const { locale, setLocale, t } = useI18n()
   const [value, setValue] = useState(localStorage.getItem('localpulse-token') || '')
+  const [allowedPrograms, setAllowedPrograms] = useState(
+    localStorage.getItem(ALLOWED_PROGRAMS_STORAGE_KEY) || '',
+  )
+  const [allowlistError, setAllowlistError] = useState('')
+  const [allowlistSaved, setAllowlistSaved] = useState(false)
+  const [savingAllowlist, setSavingAllowlist] = useState(false)
+
+  useEffect(() => {
+    if (localStorage.getItem(ALLOWED_PROGRAMS_STORAGE_KEY) !== null) return undefined
+    let active = true
+    const loadAllowedPrograms = async () => {
+      try {
+        const configured = await invoke('get_allowed_programs')
+        if (active && typeof configured === 'string') setAllowedPrograms(configured)
+      } catch (_) {}
+    }
+    loadAllowedPrograms()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const saveAllowedPrograms = async () => {
+    const normalized = allowedPrograms.trim()
+    setSavingAllowlist(true)
+    setAllowlistError('')
+    setAllowlistSaved(false)
+    try {
+      await invoke('set_allowed_programs', { value: normalized })
+      localStorage.setItem(ALLOWED_PROGRAMS_STORAGE_KEY, normalized)
+      setAllowedPrograms(normalized)
+      setAllowlistSaved(true)
+      if (agent !== 'running') onStart()
+    } catch (err) {
+      setAllowlistError(err.message || t('settings.allowedProgramsSaveFailed'))
+    } finally {
+      setSavingAllowlist(false)
+    }
+  }
+
   return (
     <div className="settings-grid">
       <section className="card settings-card">
@@ -66,6 +108,35 @@ export default function Settings({ agent, onStart, onStop }) {
           {t('common.save')} Token
         </button>
         <p className="hint">{t('settings.tokenLocal')}</p>
+        <div className="settings-divider" />
+        <label className="form-label">
+          {t('settings.allowedPrograms')}
+          <span>LOCALPULSE_ALLOWED_PROGRAMS</span>
+        </label>
+        <textarea
+          className="text-input code"
+          rows="3"
+          placeholder={t('settings.allowedProgramsPlaceholder')}
+          value={allowedPrograms}
+          onChange={e => {
+            setAllowedPrograms(e.target.value)
+            setAllowlistSaved(false)
+            setAllowlistError('')
+          }}
+        />
+        <button
+          type="button"
+          className="secondary save"
+          onClick={saveAllowedPrograms}
+          disabled={savingAllowlist}
+        >
+          {savingAllowlist
+            ? t('settings.savingAllowedPrograms')
+            : t('settings.saveAllowedPrograms')}
+        </button>
+        {allowlistSaved && <p className="save-status">{t('settings.allowedProgramsSaved')}</p>}
+        {allowlistError && <div className="form-error">{allowlistError}</div>}
+        <p className="hint">{t('settings.allowedProgramsHint')}</p>
         <div className="setting-row language-row">
           <div>
             <strong>{t('common.language')}</strong>

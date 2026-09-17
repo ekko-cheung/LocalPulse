@@ -34,7 +34,7 @@ cargo tauri dev --manifest-path src-tauri/Cargo.toml
 
 应用会在 Tauri 进程内部启动 Agent。首次启动时，GUI 会要求输入 API Token；之后启动时会自动使用已保存的 Token。
 
-如需执行本地程序，请先配置程序白名单：
+如需执行本地程序，请先在“设置”中配置 `LOCALPULSE_ALLOWED_PROGRAMS` 程序白名单，多个程序名或完整路径使用英文逗号分隔。设置会保存在本地并应用到 Agent 进程；也可以在启动应用前通过环境变量配置：
 
 ```bash
 export LOCALPULSE_ALLOWED_PROGRAMS="python,node,/Users/you/scripts/backup.sh"

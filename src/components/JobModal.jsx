@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { request } from '../api'
+import { invoke, request } from '../api'
 import { useI18n } from '../i18n'
 export default function JobModal({ onClose, onCreated }) {
   const { t } = useI18n()
@@ -21,6 +21,15 @@ export default function JobModal({ onClose, onCreated }) {
       setForm({ ...form, action: value, config: configs[value] })
     } else setForm({ ...form, [key]: value })
   }
+  const validateCron = async expression => {
+    if (!expression) throw new Error(t('modal.cronRequired'))
+    try {
+      const validation = invoke('validate_cron', { expression })
+      if (validation) await validation
+    } catch (err) {
+      throw new Error(`${t('modal.cronInvalid')}: ${err.message || err}`)
+    }
+  }
   const submit = async e => {
     e.preventDefault()
     try {
@@ -30,7 +39,7 @@ export default function JobModal({ onClose, onCreated }) {
           : form.trigger === 'cron'
             ? { type: 'cron', expression: form.triggerValue.trim() }
             : { type: 'interval', seconds: Number(form.triggerValue) }
-      if (form.trigger === 'cron' && !trigger.expression) throw new Error(t('modal.cronRequired'))
+      if (form.trigger === 'cron') await validateCron(trigger.expression)
       if (
         form.trigger === 'interval' &&
         (!Number.isInteger(trigger.seconds) || trigger.seconds < 1)
@@ -105,6 +114,12 @@ export default function JobModal({ onClose, onCreated }) {
               required={form.trigger !== 'manual'}
               value={form.triggerValue}
               onChange={e => update('triggerValue', e.target.value)}
+              onBlur={e => {
+                if (form.trigger !== 'cron' || !e.target.value.trim()) return
+                validateCron(e.target.value.trim())
+                  .then(() => setError(''))
+                  .catch(err => setError(err.message))
+              }}
               disabled={form.trigger === 'manual'}
             />
           </div>
