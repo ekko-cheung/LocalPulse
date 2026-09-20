@@ -1,6 +1,6 @@
 import JobTable from '../components/JobTable'
 import { useI18n } from '../i18n'
-export default function Dashboard({ jobs, executions, onNew, onRefresh }) {
+export default function Dashboard({ jobs, executions, onNew, onRefresh, onViewJob }) {
   const { t } = useI18n()
   return (
     <>
@@ -19,7 +19,7 @@ export default function Dashboard({ jobs, executions, onNew, onRefresh }) {
           </button>
         </div>
       </div>
-      <JobTable jobs={jobs} onRefresh={onRefresh} />
+      <JobTable jobs={jobs} onRefresh={onRefresh} onViewJob={onViewJob} />
       <div className="dashboard-summary">
         <span>
           {t('dashboard.allJobs')}: <strong>{jobs.length}</strong>

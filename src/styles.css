@@ -309,6 +309,10 @@ nav {
 .primary:hover {
   background: #5b99f7;
 }
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .secondary {
   background: #eef2f7;
   color: #5e6d80;
@@ -717,6 +721,11 @@ tbody tr:hover {
 .job-card {
   width: min(620px, 90vw);
 }
+.job-card.job-detail-card {
+  width: min(700px, 90vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -738,6 +747,21 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 15px;
+}
+.job-enabled-field {
+  padding-top: 15px;
+}
+.job-enabled-field label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #667489;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.job-enabled-field input {
+  accent-color: #4d8ff5;
 }
 .full {
   grid-column: 1/-1;
@@ -769,6 +793,9 @@ tbody tr:hover {
 }
 .row-actions {
   white-space: nowrap;
+}
+.row-actions .row-action + .row-action {
+  margin-left: 10px;
 }
 .row-delete {
   border: 0;
@@ -808,6 +835,55 @@ tbody tr:hover {
   background: #fff0f0;
   color: #c85d68;
   font-weight: 800;
+}
+.job-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 18px;
+  padding-top: 8px;
+}
+.job-detail-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px 0;
+  border-bottom: 1px solid #edf0f4;
+}
+.job-detail-item > span {
+  color: #98a3b2;
+  font-size: 10px;
+}
+.job-detail-item > strong,
+.job-detail-item > code {
+  color: #344258;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.job-detail-item > code {
+  font:
+    10px 'DM Mono',
+    monospace;
+}
+.job-detail-full {
+  grid-column: 1 / -1;
+}
+.job-detail-code {
+  margin: 0;
+  padding: 12px;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #f5f7fa;
+  color: #526176;
+  font:
+    10px/1.6 'DM Mono',
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.job-detail-loading {
+  padding: 45px 10px;
 }
 .confirm-card h3 {
   margin: 0;

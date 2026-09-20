@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import PageHeader from './components/PageHeader'
 import TokenModal from './components/TokenModal'
 import JobModal from './components/JobModal'
+import JobDetailsModal from './components/JobDetailsModal'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import History from './pages/History'
@@ -20,6 +21,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showJob, setShowJob] = useState(false)
+  const [selectedJobId, setSelectedJobId] = useState(null)
   const [showToken, setShowToken] = useState(!localStorage.getItem('localpulse-token'))
   const navigate = useNavigate()
   const refresh = async () => {
@@ -110,12 +112,20 @@ export default function App() {
                   executions={executions}
                   onNew={() => setShowJob(true)}
                   onRefresh={refresh}
+                  onViewJob={setSelectedJobId}
                 />
               }
             />
             <Route
               path="/tasks"
-              element={<Tasks jobs={jobs} onNew={() => setShowJob(true)} onRefresh={refresh} />}
+              element={
+                <Tasks
+                  jobs={jobs}
+                  onNew={() => setShowJob(true)}
+                  onRefresh={refresh}
+                  onViewJob={setSelectedJobId}
+                />
+              }
             />
             <Route path="/history" element={<History jobs={jobs} executions={executions} />} />
             <Route
@@ -130,6 +140,7 @@ export default function App() {
                   executions={executions}
                   onNew={() => setShowJob(true)}
                   onRefresh={refresh}
+                  onViewJob={setSelectedJobId}
                 />
               }
             />
@@ -139,8 +150,18 @@ export default function App() {
       {showJob && (
         <JobModal
           onClose={() => setShowJob(false)}
-          onCreated={() => {
+          onSaved={() => {
             setShowJob(false)
+            refresh()
+          }}
+        />
+      )}
+      {selectedJobId && (
+        <JobDetailsModal
+          jobId={selectedJobId}
+          onClose={() => setSelectedJobId(null)}
+          onUpdated={() => {
+            setSelectedJobId(null)
             refresh()
           }}
         />

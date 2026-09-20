@@ -2,7 +2,7 @@ import { request, shortId } from '../api'
 import { Status } from './ExecutionTable'
 import { useState } from 'react'
 import { useI18n } from '../i18n'
-export default function JobTable({ jobs, onRefresh }) {
+export default function JobTable({ jobs, onRefresh, onViewJob }) {
   const { t } = useI18n()
   const [pendingDelete, setPendingDelete] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -77,7 +77,11 @@ export default function JobTable({ jobs, onRefresh }) {
                   <Status enabled={job.enabled} />
                 </td>
                 <td className="row-actions">
+                  <button type="button" className="row-action" onClick={() => onViewJob(job.id)}>
+                    {t('jobs.details')}
+                  </button>
                   <button
+                    type="button"
                     className="row-action"
                     onClick={async () => {
                       try {
@@ -90,7 +94,11 @@ export default function JobTable({ jobs, onRefresh }) {
                   >
                     {t('jobs.run')}
                   </button>
-                  <button className="row-delete" onClick={() => setPendingDelete(job)}>
+                  <button
+                    type="button"
+                    className="row-delete"
+                    onClick={() => setPendingDelete(job)}
+                  >
                     {t('common.delete')}
                   </button>
                 </td>

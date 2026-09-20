@@ -1,6 +1,6 @@
 import JobTable from '../components/JobTable'
 import { useI18n } from '../i18n'
-export default function Tasks({ jobs, onNew, onRefresh }) {
+export default function Tasks({ jobs, onNew, onRefresh, onViewJob }) {
   const { t } = useI18n()
   return (
     <>
@@ -24,7 +24,7 @@ export default function Tasks({ jobs, onNew, onRefresh }) {
         </span>
         <span className="filter">{t('tasks.manual')}</span>
       </div>
-      <JobTable jobs={jobs} onRefresh={onRefresh} />
+      <JobTable jobs={jobs} onRefresh={onRefresh} onViewJob={onViewJob} />
     </>
   )
 }
