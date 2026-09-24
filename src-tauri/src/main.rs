@@ -17,6 +17,7 @@ use tokio::{
 };
 
 mod agent;
+mod hooks;
 
 type AgentTask = (JoinHandle<anyhow::Result<()>>, oneshot::Sender<()>);
 
@@ -66,7 +67,7 @@ fn start_agent(
     }
     let last_error = Arc::clone(&state.last_error);
     let task = state.runtime.spawn(async move {
-        let result = agent::run(Some(token), Some(receiver), app).await;
+        let result = agent::run(Some(token), Some(receiver), app, data_dir).await;
         if let Err(error) = &result {
             if let Ok(mut last) = last_error.lock() {
                 *last = Some(error.to_string());
@@ -138,11 +139,17 @@ fn validate_cron(expression: String) -> Result<(), String> {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "--localpulse-hook") {
+        hooks::run_hook_cli(&args);
+        return;
+    }
     tracing_subscriber::fmt()
         .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "localpulse=info".into()))
         .init();
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AgentProcess {
             runtime: Runtime::new().expect("failed to create Tokio runtime"),
             task: Mutex::new(None),
@@ -154,7 +161,10 @@ fn main() {
             agent_status,
             get_allowed_programs,
             set_allowed_programs,
-            validate_cron
+            validate_cron,
+            hooks::list_hook_integrations,
+            hooks::add_hook_rule,
+            hooks::remove_hook_rule
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "打开应用", true, None::<&str>)?;

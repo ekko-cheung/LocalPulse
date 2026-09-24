@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { invoke } from '../api'
 import { ALLOWED_PROGRAMS_STORAGE_KEY } from '../constants'
 import { useI18n } from '../i18n'
+import HookSettings from '../components/HookSettings'
 export default function Settings({ agent, onStart, onStop }) {
   const { locale, setLocale, t } = useI18n()
   const [value, setValue] = useState(localStorage.getItem('localpulse-token') || '')
@@ -151,6 +152,7 @@ export default function Settings({ agent, onStart, onStop }) {
           </select>
         </div>
       </section>
+      <HookSettings />
     </div>
   )
 }

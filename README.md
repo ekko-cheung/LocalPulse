@@ -14,6 +14,7 @@ It combines a React + Vite interface with a Tauri 2 desktop shell. The Axum API,
 - React Router dashboard, task management, history, and settings pages
 - macOS menu bar and Windows system tray support
 - Hides to the tray when the main window is closed
+- Optional Claude Code and Codex hooks for permission, response, and tool completion notifications
 
 ## Requirements
 
@@ -37,6 +38,8 @@ To allow local commands, configure the `LOCALPULSE_ALLOWED_PROGRAMS` allowlist i
 ```bash
 export LOCALPULSE_ALLOWED_PROGRAMS="python,node,/Users/you/scripts/backup.sh"
 ```
+
+In Settings, use **AI Agent notifications** to install Claude Code or Codex hooks. Rules can apply to every project or only a selected folder and its subfolders. Project rules remain local to this machine. Keep LocalPulse running for notifications; Codex may ask you to trust the new hooks through `/hooks` before they run.
 
 ## API
 

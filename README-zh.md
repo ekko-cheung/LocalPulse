@@ -11,6 +11,7 @@ LocalPulse 是一个轻量级跨平台桌面 Agent，用于本机任务调度、
 
 创建任务时可选择 Cron 触发方式。Cron 使用 7 段格式（秒、分、时、日、月、星期、年），例如 `0 0/5 * * * * *` 表示每 5 分钟执行一次。
 - HTTP 请求、本地程序和系统通知
+- 可选的 Claude Code 和 Codex hooks，可在请求权限、回复完成或工具操作完成时提醒
 - SQLite 持久化与执行历史
 - Bearer Token 鉴权和本地程序白名单
 - React Router 管理界面
@@ -39,6 +40,8 @@ cargo tauri dev --manifest-path src-tauri/Cargo.toml
 ```bash
 export LOCALPULSE_ALLOWED_PROGRAMS="python,node,/Users/you/scripts/backup.sh"
 ```
+
+在“设置”中的“AI Agent 提醒”可为 Claude Code 或 Codex 安装 hooks。规则可用于所有项目，或仅用于所选目录及其子目录；项目规则只保存在本机。提醒需要 LocalPulse 保持运行。Codex 首次使用新增 hooks 时，可能需要在 `/hooks` 中信任它们。
 
 ## API
 

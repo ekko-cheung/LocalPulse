@@ -564,6 +564,53 @@ tbody tr:hover {
   grid-template-columns: 1.2fr 0.8fr;
   gap: 17px;
 }
+.hook-settings {
+  grid-column: 1 / -1;
+}
+.hook-status,
+.hook-fields,
+.hook-project,
+.hook-events {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+.hook-status {
+  color: #667489;
+  font-size: 11px;
+}
+.hook-fields label {
+  flex: 1;
+  color: #667489;
+  font-size: 11px;
+  font-weight: 700;
+}
+.hook-fields select {
+  display: block;
+  margin-top: 7px;
+}
+.hook-project input {
+  flex: 1;
+}
+.hook-events {
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #667489;
+}
+.hook-events label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hook-rules {
+  margin-top: 18px;
+}
+.hook-rules .setting-row {
+  gap: 16px;
+}
+.hook-rules small {
+  overflow-wrap: anywhere;
+}
 .settings-card {
   padding: 24px;
 }

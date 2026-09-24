@@ -1,3 +1,4 @@
+use crate::hooks::{self, HookEvent};
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
@@ -41,6 +42,8 @@ struct AppState {
     slots: Arc<Semaphore>,
     app: AppHandle,
     active_executions: Arc<ActiveExecutions>,
+    hook_token: Arc<String>,
+    hook_data_dir: Arc<std::path::PathBuf>,
 }
 
 #[derive(Default)]
@@ -397,6 +400,40 @@ async fn notify(
     Ok(ok(json!({"sent":true})))
 }
 
+async fn hook_event(
+    State(s): State<AppState>,
+    headers: HeaderMap,
+    Json(event): Json<HookEvent>,
+) -> Result<Json<Api<Value>>, (StatusCode, Json<Api<Value>>)> {
+    if !authorized(&headers, &s.hook_token) {
+        return Err(fail(StatusCode::UNAUTHORIZED, "invalid hook token"));
+    }
+    if !["claude", "codex"].contains(&event.agent.as_str())
+        || !["permission", "stop", "tool"].contains(&event.event.as_str())
+        || event.cwd.len() > 4096
+    {
+        return Err(fail(StatusCode::BAD_REQUEST, "invalid hook event"));
+    }
+    if let Some(project) = hooks::notification_project(&s.hook_data_dir, &event) {
+        let agent = if event.agent == "claude" {
+            "Claude Code"
+        } else {
+            "Codex"
+        };
+        let action = match event.event.as_str() {
+            "permission" => "请求权限",
+            "stop" => "回复完成",
+            _ => "工具操作完成",
+        };
+        let title = format!("{agent} · {action}");
+        let body = format!("项目：{project}");
+        send_notification(&s.app, &title, &body, &["native".into()])
+            .await
+            .map_err(|e| fail(StatusCode::BAD_GATEWAY, e.to_string()))?;
+    }
+    Ok(ok(json!({"received":true})))
+}
+
 fn validate(input: &JobInput) -> Result<(), (StatusCode, Json<Api<Value>>)> {
     if input.name.trim().is_empty() {
         return Err(fail(StatusCode::BAD_REQUEST, "name is required"));
@@ -589,7 +626,9 @@ pub async fn run(
     token: Option<String>,
     shutdown: Option<tokio::sync::oneshot::Receiver<()>>,
     app: AppHandle,
+    hook_data_dir: std::path::PathBuf,
 ) -> anyhow::Result<()> {
+    let hook_token = hooks::ensure_token(&hook_data_dir).map_err(anyhow::Error::msg)?;
     let path = env::var("LOCALPULSE_DATABASE").unwrap_or_else(|_| "localpulse.db".into());
     let database_url = if path.starts_with("sqlite:") {
         path
@@ -618,11 +657,14 @@ pub async fn run(
         slots: Arc::new(Semaphore::new(4)),
         app,
         active_executions: Arc::new(ActiveExecutions::default()),
+        hook_token: Arc::new(hook_token),
+        hook_data_dir: Arc::new(hook_data_dir),
     };
     let app = Router::new()
         .route("/api/v1/health", get(health))
         .route("/health", get(health))
         .route("/api/v1/notify", post(notify))
+        .route("/api/v1/hook-events", post(hook_event))
         .route("/api/v1/jobs", get(list_jobs).post(create_job))
         .route(
             "/api/v1/jobs/:id",
