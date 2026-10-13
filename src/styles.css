@@ -836,3 +836,29 @@ input[type='checkbox'] {
 .title-block {
   min-width: 0;
 }
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.segmented button {
+  border: 0;
+  background: var(--surface);
+  color: var(--text-2);
+  padding: 4px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+.segmented button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.inline-actions {
+  display: flex;
+  gap: 8px;
+}

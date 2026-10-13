@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Route, Routes, useNavigate } from 'react-router-dom'
-import { API, invoke, request } from './api'
+import { invoke, request } from './api'
+import { getApiBase, getMode, getRemoteUrl, getToken, setMode } from './connection'
 import Layout from './components/Layout'
 import PageHeader from './components/PageHeader'
 import TokenModal from './components/TokenModal'
@@ -22,7 +23,7 @@ export default function App() {
   const [error, setError] = useState('')
   const [showJob, setShowJob] = useState(false)
   const [selectedJobId, setSelectedJobId] = useState(null)
-  const [showToken, setShowToken] = useState(!localStorage.getItem('localpulse-token'))
+  const [showToken, setShowToken] = useState(getMode() === 'local' && !getToken())
   const navigate = useNavigate()
   const refresh = async () => {
     try {
@@ -39,8 +40,28 @@ export default function App() {
       setLoading(false)
     }
   }
+  const connectRemote = async () => {
+    if (!getToken() || getApiBase().startsWith('http:///')) {
+      setAgent('stopped')
+      setError(t('settings.remoteIncomplete'))
+      return
+    }
+    try {
+      const response = await fetch(`${getApiBase()}/health`)
+      if (!response.ok) throw new Error(String(response.status))
+      setAgent('running')
+      await refresh()
+    } catch (_) {
+      setAgent('stopped')
+      setJobs([])
+      setExecutions([])
+      setLoading(false)
+      setError(t('errors.apiUnavailable', { url: getApiBase() }))
+    }
+  }
   const startAgent = async () => {
-    const token = localStorage.getItem('localpulse-token') || ''
+    if (getMode() === 'remote') return connectRemote()
+    const token = getToken()
     if (!token) {
       setShowToken(true)
       return
@@ -55,7 +76,7 @@ export default function App() {
       for (let i = 0; i < 20; i += 1) {
         await new Promise(resolve => setTimeout(resolve, 300))
         try {
-          const response = await fetch(`${API}/health`)
+          const response = await fetch(`${getApiBase()}/health`)
           if (response.ok) {
             ready = true
             setAgent('running')
@@ -80,15 +101,25 @@ export default function App() {
       setError(err.message || 'Agent 启动失败')
     }
   }
+  const switchMode = async mode => {
+    if (mode === getMode()) return
+    if (getMode() === 'local') await invoke('stop_agent').catch(() => {})
+    setMode(mode)
+    setAgent('stopped')
+    setError('')
+    setJobs([])
+    setExecutions([])
+    if (mode === 'local' && !getToken()) setShowToken(true)
+    else if (mode === 'local' || getRemoteUrl()) await startAgent()
+  }
   const stopAgent = async () => {
-    await invoke('stop_agent')
+    if (getMode() === 'local') await invoke('stop_agent')
     setAgent('stopped')
     setError('')
   }
   useEffect(() => {
     const boot = async () => {
-      const token = localStorage.getItem('localpulse-token') || ''
-      if (token) await startAgent()
+      if (getMode() === 'remote' || getToken()) await startAgent()
       else refresh()
     }
     boot()
@@ -130,7 +161,14 @@ export default function App() {
             <Route path="/history" element={<History jobs={jobs} executions={executions} />} />
             <Route
               path="/settings"
-              element={<Settings agent={agent} onStart={startAgent} onStop={stopAgent} />}
+              element={
+                <Settings
+                  agent={agent}
+                  onStart={startAgent}
+                  onStop={stopAgent}
+                  onSwitchMode={switchMode}
+                />
+              }
             />
             <Route
               path="*"

@@ -54,6 +54,17 @@ const messages = {
     history: { copy: '所有任务的运行轨迹、输出与错误信息', empty: '暂无执行历史。' },
     settings: {
       connection: 'Agent 连接',
+      mode: '连接目标',
+      modeLocal: '本机',
+      modeRemote: '远程',
+      remoteUrl: '远程地址',
+      remoteUrlPlaceholder: '例如：192.168.1.10:7788 或 https://agent.example.com',
+      remoteHint:
+        '远程 Agent 需以 LOCALPULSE_HOST=0.0.0.0 启动，并使用其 API Token。建议通过 HTTPS 或内网/VPN 访问。',
+      remoteConnect: '保存并连接',
+      remoteIncomplete: '请先填写远程地址和 API Token',
+      remoteOnlyLocal:
+        '本地程序白名单与 AI Hook 仅适用于本机 Agent，远程模式下请在远程主机上配置。',
       connectionCopy: '管理本机 Agent 服务进程',
       address: '服务地址',
       addressCopy: 'Agent 默认仅监听本机回环地址',
@@ -228,6 +239,17 @@ const messages = {
     },
     settings: {
       connection: 'Agent connection',
+      mode: 'Target',
+      modeLocal: 'Local',
+      modeRemote: 'Remote',
+      remoteUrl: 'Remote address',
+      remoteUrlPlaceholder: 'e.g. 192.168.1.10:7788 or https://agent.example.com',
+      remoteHint:
+        'The remote Agent must run with LOCALPULSE_HOST=0.0.0.0 and use its own API Token. Prefer HTTPS or a private network/VPN.',
+      remoteConnect: 'Save & connect',
+      remoteIncomplete: 'Enter the remote address and API Token first',
+      remoteOnlyLocal:
+        'The program allowlist and AI hooks only apply to the local Agent. Configure them on the remote host.',
       connectionCopy: 'Manage the local Agent service',
       address: 'Service address',
       addressCopy: 'The Agent listens on the local loopback address by default',

@@ -1,4 +1,5 @@
-export const API = 'http://127.0.0.1:7788/api/v1'
+import { getApiBase, getToken } from './connection'
+
 export const invoke = (name, args) => window.__TAURI__?.core?.invoke(name, args)
 export const shortId = id => id?.slice(0, 8) || '—'
 export const prettyTime = (value, locale = 'zh') =>
@@ -6,9 +7,10 @@ export const prettyTime = (value, locale = 'zh') =>
     ? new Date(value).toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US', { hour12: false })
     : '—'
 export async function request(path, options = {}) {
-  const rawToken = localStorage.getItem('localpulse-token') || ''
-  const token = rawToken.trim().replace(/[\u0000-\u001f\u007f]/g, '')
-  const url = `${API}${path}`
+  const token = getToken()
+    .trim()
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+  const url = `${getApiBase()}${path}`
   try {
     const response = await fetch(url, {
       ...options,
