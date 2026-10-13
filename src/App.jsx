@@ -99,7 +99,7 @@ export default function App() {
   return (
     <Layout agent={agent} failedCount={failedCount} onStart={startAgent} onStop={stopAgent}>
       <main className="content">
-        <PageHeader agent={agent} error={error} onClearError={() => setError('')} />
+        <PageHeader error={error} onClearError={() => setError('')} />
         {loading ? (
           <div className="loading">{t('loading')}</div>
         ) : (

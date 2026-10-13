@@ -6,9 +6,7 @@ export default function Dashboard({ jobs, executions, onNew, onRefresh, onViewJo
     <>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">{t('dashboard.greeting')}</p>
           <h2>{t('dashboard.taskList')}</h2>
-          <p>{t('dashboard.taskListCopy')}</p>
         </div>
         <div className="dashboard-actions">
           <button className="secondary" onClick={onRefresh}>

@@ -1,8 +1,10 @@
 import { NavLink } from 'react-router-dom'
 import { navItems } from '../constants'
 import { useI18n } from '../i18n'
+import { useTheme } from '../theme'
 export default function Layout({ agent, failedCount, children, onStart, onStop }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const { theme, toggle } = useTheme()
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -38,6 +40,14 @@ export default function Layout({ agent, failedCount, children, onStart, onStop }
             aria-label={agent === 'running' ? t('settings.stop') : t('settings.start')}
           >
             {agent === 'running' ? 'Ⅱ' : '▶'}
+          </button>
+          <button
+            className="icon-button"
+            onClick={toggle}
+            title={locale === 'zh' ? '切换明暗主题' : 'Toggle theme'}
+            aria-label={locale === 'zh' ? '切换明暗主题' : 'Toggle theme'}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
           </button>
         </div>
       </header>
